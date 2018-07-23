@@ -54,6 +54,19 @@ class ViewController: UITableViewController {
         self.present(alert, animated: true, completion: nil)
     }
     
+    @objc
+    public func applicationDidEnterBackground(_ notification: NSNotification)
+    {
+        do
+        {
+            try todoItems.writeToPersistence()
+        }
+        catch let error
+        {
+            NSLog("Error writing to persistence: \(error)")
+        }
+    }
+    
     private func addNewToDoItem(title: String) {
         // The index of the new item will be the current item count
         let newIndex = todoItems.count
@@ -72,6 +85,41 @@ class ViewController: UITableViewController {
         self.title = "To-Do"
         
         self.navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(ViewController.didTapAddItemButton(_:)))
+        
+        // Setup a notification to let us know when the app is about to close,
+        // and that we should store the user items to persistence. This will call the
+        // applicationDidEnterBackground() function in this class
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(UIApplicationDelegate.applicationDidEnterBackground(_:)),
+            name: NSNotification.Name.UIApplicationDidEnterBackground,
+            object: nil)
+        
+        do
+        {
+            // Try to load from persistence
+            self.todoItems = try [ToDoItem].readFromPersistence()
+        }
+        catch let error as NSError
+        {
+            if error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError
+            {
+                NSLog("No persistence file found, not necesserially an error...")
+            }
+            else
+            {
+                let alert = UIAlertController(
+                    title: "Error",
+                    message: "Could not load the to-do items!",
+                    preferredStyle: .alert)
+                
+                alert.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+                
+                self.present(alert, animated: true, completion: nil)
+                
+                NSLog("Error loading from persistence: \(error)")
+            }
+        }
     }
 
     override func didReceiveMemoryWarning() {
